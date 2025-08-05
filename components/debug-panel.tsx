@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, RefreshCw, Database, AlertTriangle, CheckCircle, Globe, Zap, Factory, Copy } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner"
+
 
 export function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false) // Fechado por padrão agora que está funcionando
@@ -90,8 +91,7 @@ export function DebugPanel() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast({
-      title: "Copiado!",
+    toast("Copiado!",{
       description: "Texto copiado para a área de transferência",
     })
   }

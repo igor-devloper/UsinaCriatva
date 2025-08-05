@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Zap, Factory, Calendar, BarChart3 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Zap, Factory, Calendar, BarChart3 } from "lucide-react"
 import type { MetricasUsina } from "@/types/usina"
 
 interface MetricasCardsProps {
-  metricas: MetricasUsina & { totalConsorcios?: number }
+  metricas: MetricasUsina
 }
 
 export function MetricasCards({ metricas }: MetricasCardsProps) {
@@ -53,22 +53,22 @@ export function MetricasCards({ metricas }: MetricasCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Geração Mensal</CardTitle>
+          <CardTitle className="text-sm font-medium">Geração no Período</CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatarEnergia(metricas.energiaMensal)}</div>
+          <div className="text-2xl font-bold">{formatarEnergia(metricas.energiaNoPeriodo)}</div>
           <div className="flex items-center text-xs">
-            {metricas.crescimentoMensal >= 0 ? (
+            {metricas.crescimentoNoPeriodo >= 0 ? (
               <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
             ) : (
               <TrendingDown className="h-3 w-3 text-red-500 mr-1" />
             )}
-            <span className={metricas.crescimentoMensal >= 0 ? "text-green-500" : "text-red-500"}>
-              {metricas.crescimentoMensal >= 0 ? "+" : ""}
-              {metricas.crescimentoMensal.toFixed(1)}%
+            <span className={metricas.crescimentoNoPeriodo >= 0 ? "text-green-500" : "text-red-500"}>
+              {metricas.crescimentoNoPeriodo >= 0 ? "+" : ""}
+              {metricas.crescimentoNoPeriodo.toFixed(1)}%
             </span>
-            <span className="text-muted-foreground ml-1">vs mês anterior</span>
+            <span className="text-muted-foreground ml-1">vs período anterior</span>
           </div>
         </CardContent>
       </Card>
@@ -80,7 +80,7 @@ export function MetricasCards({ metricas }: MetricasCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatarEnergia(metricas.mediaGeracaoDiaria)}</div>
-          <p className="text-xs text-muted-foreground">Geração média por dia</p>
+          <p className="text-xs text-muted-foreground">Geração média por dia com dados</p>
         </CardContent>
       </Card>
 

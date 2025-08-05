@@ -1,79 +1,70 @@
 "use client"
 
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
+import type { GeracaoDiaria } from "@/types/usina" // Assuming GeracaoDiaria is imported from a types file
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
-interface GeracaoDiaria {
-  data: string | number | Date
-  energiaKwh: number
-}
-
 interface GraficoGeracaoProps {
   dados: GeracaoDiaria[]
-  periodo: "diario" | "mensal" | "anual"
+  periodo: "diario" | "mensal" | "anual" | "custom"
 }
 
 export function GraficoGeracao({ dados, periodo }: GraficoGeracaoProps) {
-  // ✅ Monta os dados com validação e logs de erro
-  const dadosGrafico = dados
-    .map((item, index) => {
-      const dataObj = new Date(item.data)
+  const formatarDataEixoX = (tickItem: number) => {
+    const date = new Date(tickItem)
+    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
-      if (isNaN(dataObj.getTime())) {
-        console.warn(`⚠️ [Dado inválido] Data inválida no índice ${index}:`, item.data)
-        return null
-      }
-
-      if (typeof item.energiaKwh !== "number" || isNaN(item.energiaKwh)) {
-        console.warn(`⚠️ [Dado inválido] Energia inválida no índice ${index}:`, item.energiaKwh)
-        return null
-      }
-
-      return {
-        data: dataObj.getTime(),
-        energia: item.energiaKwh,
-        dataCompleta: format(dataObj, "dd/MM/yyyy", { locale: ptBR }),
-      }
-    })
-    .filter(Boolean) // remove nulls
-
-  // ✅ Formata o eixo X baseado no período
-  const formatarDataEixoX = (tick: number) => {
-    const date = new Date(tick)
+    if (isNaN(localDate.getTime())) {
+      return String(tickItem)
+    }
     switch (periodo) {
       case "diario":
-        return format(date, "dd/MM", { locale: ptBR })
+        return format(localDate, "dd/MM", { locale: ptBR })
       case "mensal":
-        return format(date, "MMM/yy", { locale: ptBR })
+        return format(localDate, "MMM/yy", { locale: ptBR })
       case "anual":
-        return format(date, "yyyy", { locale: ptBR })
+        return format(localDate, "yyyy", { locale: ptBR })
       default:
-        return format(date, "dd/MM/yyyy", { locale: ptBR })
+        return format(localDate, "dd/MM/yyyy", { locale: ptBR })
     }
   }
 
+  const dadosGrafico = dados.map((item) => {
+    const date = new Date(item.data)
+    const localStartOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+    return {
+      data: localStartOfDay.getTime(),
+      energia: item.energiaKwh,
+      dataCompleta: format(localStartOfDay, "dd/MM/yyyy", { locale: ptBR }),
+    }
+  })
+
   const formatarEnergia = (kwh: number) => {
-    if (kwh >= 1000000) return `${(kwh / 1000000).toFixed(1)} GWh`
-    if (kwh >= 1000) return `${(kwh / 1000).toFixed(1)} MWh`
+    if (kwh >= 1000000) {
+      return `${(kwh / 1000000).toFixed(1)} GWh`
+    } else if (kwh >= 1000) {
+      return `${(kwh / 1000).toFixed(1)} MWh`
+    }
     return `${kwh.toFixed(1)} kWh`
   }
 
-  // ✅ Logs úteis
-  console.log("📊 Total de dados válidos:", dadosGrafico.length)
-  if (dadosGrafico.length) {
-    console.log("📊 Primeiro:", dadosGrafico[0])
-    console.log("📊 Último:", dadosGrafico[dadosGrafico.length - 1])
+  console.log("📈 [GraficoGeracao] Dados recebidos para o gráfico:", dadosGrafico.length, "pontos.")
+  if (dadosGrafico.length > 0) {
+    console.log("📈 [GraficoGeracao] Primeiro ponto:", dadosGrafico[0])
+    console.log("📈 [GraficoGeracao] Último ponto:", dadosGrafico[dadosGrafico.length - 1])
+    dadosGrafico.forEach((d, i) =>
+      console.log(
+        `📈 [GraficoGeracao] Ponto ${i}: Data=${d.dataCompleta} (Timestamp: ${d.data}), Energia=${d.energia}`,
+      ),
+    )
+  } else {
+    console.log("📈 [GraficoGeracao] Nenhum dado para renderizar o gráfico.")
   }
+
+  console.log("📈 [GraficoGeracao] Dados finais para LineChart:", dadosGrafico)
 
   return (
     <Card>
@@ -82,32 +73,44 @@ export function GraficoGeracao({ dados, periodo }: GraficoGeracaoProps) {
         <CardDescription>Evolução da geração de energia no período selecionado</CardDescription>
       </CardHeader>
       <CardContent>
-        <div style={{ height: 400 }}>
+        <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dadosGrafico}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="data"
-                type="number"
-                tickFormatter={formatarDataEixoX}
-                domain={['dataMin', 'dataMax']}
+                axisLine={false}
+                tickLine={false}
                 tick={{ fontSize: 12 }}
                 stroke="hsl(var(--muted-foreground))"
+                tickFormatter={formatarDataEixoX}
+                type="number"
+                domain={["dataMin", "dataMax"]}
               />
               <YAxis
-                tickFormatter={formatarEnergia}
+                axisLine={false}
+                tickLine={false}
                 tick={{ fontSize: 12 }}
-                domain={[0, "auto"]}
+                tickFormatter={formatarEnergia}
                 stroke="hsl(var(--muted-foreground))"
+                domain={[0, "auto"]}
               />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (active && payload && payload.length) {
-                    const p = payload[0].payload
+                    const formattedDate = formatarDataEixoX(label as number)
                     return (
-                      <div className="p-2 border rounded bg-background shadow-sm text-sm">
-                        <div><strong>Data:</strong> {p.dataCompleta}</div>
-                        <div><strong>Energia:</strong> {formatarEnergia(p.energia)}</div>
+                      <div className="rounded-lg border bg-background p-2 shadow-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col">
+                            <span className="text-[0.70rem] uppercase text-muted-foreground">Data</span>
+                            <span className="font-bold text-muted-foreground">{formattedDate}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[0.70rem] uppercase text-muted-foreground">Energia</span>
+                            <span className="font-bold">{formatarEnergia(payload[0]?.value as number)}</span>
+                          </div>
+                        </div>
                       </div>
                     )
                   }
@@ -117,7 +120,7 @@ export function GraficoGeracao({ dados, periodo }: GraficoGeracaoProps) {
               <Line
                 type="monotone"
                 dataKey="energia"
-                stroke="#22c55e" // verde forte visível
+                stroke="#8884d8" // Alterado para uma cor fixa (azul/roxo) para teste
                 strokeWidth={2}
                 dot={true}
               />

@@ -23,6 +23,12 @@ export function useUsinas(filtros?: FiltrosPeriodo) {
         params.append("dataInicio", filtros.dataInicio.toISOString())
         params.append("dataFim", filtros.dataFim.toISOString())
       }
+      if (filtros?.consorcio && filtros.consorcio !== "todos") {
+        params.append("consorcio", filtros.consorcio)
+      }
+      if (filtros?.potenciaSelecionada !== undefined && filtros.potenciaSelecionada !== null) {
+        params.append("potenciaSelecionada", filtros.potenciaSelecionada.toString()) // Alterado
+      }
 
       const url = `/api/usinas?${params}`
       console.log("📡 URL da requisição:", url)
@@ -49,7 +55,12 @@ export function useUsinas(filtros?: FiltrosPeriodo) {
 
   useEffect(() => {
     fetchUsinas()
-  }, [filtros?.dataInicio?.toISOString(), filtros?.dataFim?.toISOString()])
+  }, [
+    filtros?.dataInicio?.toISOString(),
+    filtros?.dataFim?.toISOString(),
+    filtros?.consorcio,
+    filtros?.potenciaSelecionada, // Alterado
+  ])
 
   return { usinas, loading, error, refetch: fetchUsinas }
 }

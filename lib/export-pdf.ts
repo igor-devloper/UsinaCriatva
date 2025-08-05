@@ -1,13 +1,16 @@
-import jsPDF from "jspdf"
-// IMPORTANTE: O import de jspdf-autotable DEVE vir DEPOIS de jspdf
-import "jspdf-autotable"
-import type { MetricasUsina, Usina, FiltrosPeriodo } from "@/types/usina"
+// ✅ Fallback universal para jsPDF + autoTable
+let jsPDFLib: any
+let autoTableLib: any
 
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF
-  }
+try {
+  // 📦 CJS compatível com Webpack e Turbopack
+  jsPDFLib = require("jspdf").jsPDF
+  autoTableLib = require("jspdf-autotable")
+} catch (error) {
+  console.error("❌ Erro ao importar jsPDF ou autoTable com require():", error)
 }
+
+import type { MetricasUsina, Usina, FiltrosPeriodo } from "@/types/usina"
 
 interface DadosExportacao {
   metricas: MetricasUsina
@@ -16,26 +19,30 @@ interface DadosExportacao {
 }
 
 export function exportarPDF(dados: DadosExportacao) {
-  const doc = new jsPDF()
+  const doc = new jsPDFLib()
 
-  // Configurações
+  // 🔍 Verificação de segurança
+  if (typeof doc.autoTable !== "function") {
+    console.error("❌ autoTable não está disponível no jsPDF.")
+    alert("Erro ao gerar PDF: recurso de tabela indisponível.")
+    return
+  }
+
+  // Configurações iniciais
   const pageWidth = doc.internal.pageSize.width
   const margin = 20
   let yPosition = margin
 
-  // Título
   doc.setFontSize(20)
   doc.setFont("helvetica", "bold")
   doc.text("Relatório de Usinas Solares", pageWidth / 2, yPosition, { align: "center" })
   yPosition += 15
 
-  // Data de geração
   doc.setFontSize(12)
   doc.setFont("helvetica", "normal")
   doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pageWidth / 2, yPosition, { align: "center" })
   yPosition += 20
 
-  // Filtros aplicados
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
   doc.text("Filtros Aplicados:", margin, yPosition)
@@ -60,38 +67,33 @@ export function exportarPDF(dados: DadosExportacao) {
   }
   yPosition += 10
 
-  // Métricas
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
   doc.text("Métricas Gerais:", margin, yPosition)
   yPosition += 15
 
-  const formatarEnergia = (kwh: number) => {
-    if (kwh >= 1000000) {
-      return `${(kwh / 1000000).toFixed(1)} GWh`
-    } else if (kwh >= 1000) {
-      return `${(kwh / 1000).toFixed(1)} MWh`
-    }
+  const formatarEnergia = (kwh: number | null | undefined) => {
+    if (kwh === null || kwh === undefined || isNaN(kwh)) return "N/A"
+    if (kwh >= 1_000_000) return `${(kwh / 1_000_000).toFixed(1)} GWh`
+    if (kwh >= 1_000) return `${(kwh / 1_000).toFixed(1)} MWh`
     return `${kwh.toFixed(1)} kWh`
   }
 
-  const formatarPotencia = (kw: number) => {
-    if (kw >= 1000) {
-      return `${(kw / 1000).toFixed(1)} MW`
-    }
+  const formatarPotencia = (kw: number | null | undefined) => {
+    if (kw === null || kw === undefined || isNaN(kw)) return "N/A"
+    if (kw >= 1000) return `${(kw / 1000).toFixed(1)} MW`
     return `${kw.toFixed(1)} kW`
   }
 
-  // Tabela de métricas
   doc.autoTable({
     startY: yPosition,
     head: [["Métrica", "Valor"]],
     body: [
       ["Total de Usinas", dados.metricas.totalUsinas.toString()],
       ["Potência Total", formatarPotencia(dados.metricas.potenciaTotal)],
-      ["Geração no Período", formatarEnergia(dados.metricas.energiaMensal)],
+      ["Geração no Período", formatarEnergia(dados.metricas.energiaNoPeriodo)],
       ["Média Diária", formatarEnergia(dados.metricas.mediaGeracaoDiaria)],
-      ["Crescimento", `${dados.metricas.crescimentoMensal.toFixed(1)}%`],
+      ["Crescimento", `${dados.metricas.crescimentoNoPeriodo.toFixed(1)}%`],
       ["Total de Consórcios", dados.metricas.totalConsorcios?.toString() || "N/A"],
     ],
     theme: "grid",
@@ -101,13 +103,11 @@ export function exportarPDF(dados: DadosExportacao) {
 
   yPosition = (doc as any).lastAutoTable.finalY + 20
 
-  // Verificar se precisa de nova página
   if (yPosition > doc.internal.pageSize.height - 60) {
     doc.addPage()
     yPosition = margin
   }
 
-  // Tabela de usinas
   doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
   doc.text("Detalhes das Usinas:", margin, yPosition)
@@ -135,7 +135,6 @@ export function exportarPDF(dados: DadosExportacao) {
     styles: { fontSize: 8 },
   })
 
-  // Salvar o PDF
   const nomeArquivo = `relatorio-usinas-${new Date().toISOString().split("T")[0]}.pdf`
   doc.save(nomeArquivo)
 }

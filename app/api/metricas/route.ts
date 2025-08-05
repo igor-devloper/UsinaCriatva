@@ -11,11 +11,13 @@ export async function GET(request: Request) {
     const dataInicio = searchParams.get("dataInicio")
     const dataFim = searchParams.get("dataFim")
     const consorcio = searchParams.get("consorcio")
+    const potenciaSelecionada = searchParams.get("potenciaSelecionada") // Alterado
 
+    console.log("📋 [API] Parâmetros:", { usinaId, dataInicio, dataFim, consorcio, potenciaSelecionada }) // Alterado
 
     // Conectar ao banco
     await prisma.$connect()
-   
+    console.log("✅ [API] Conectado ao banco de dados")
 
     // Filtros para usinas
     const usinaWhere: any = {}
@@ -25,28 +27,32 @@ export async function GET(request: Request) {
     if (consorcio && consorcio !== "todos") {
       const usinasDoConsorcio = Object.entries(usinaConsorcioMap)
         .filter(([, mappedConsorcio]) => mappedConsorcio === consorcio)
-        .map(([usinaNome]) => usinaNome);
+        .map(([usinaNome]) => usinaNome)
 
       if (usinasDoConsorcio.length > 0) {
         usinaWhere.nome = {
           in: usinasDoConsorcio,
-        };
+        }
       } else {
         // If no usinas match the consorcio, return metrics with zero values
         const metricas = {
           totalUsinas: 0,
           potenciaTotal: 0,
-          energiaMensal: 0,
-          energiaAnual: 0,
+          energiaNoPeriodo: 0, // Renomeado
           mediaGeracaoDiaria: 0,
-          crescimentoMensal: 0,
-          totalConsorcios: 0, // New metric
+          crescimentoNoPeriodo: 0, // Renomeado
+          totalConsorcios: 0,
         }
+        console.log("⚠️ [API] Nenhuma usina encontrada para o consórcio:", consorcio)
         return NextResponse.json(metricas)
       }
     }
 
- 
+    if (potenciaSelecionada !== null && !isNaN(Number(potenciaSelecionada))) {
+      usinaWhere.potencia = Number(potenciaSelecionada) // Alterado para filtro exato
+    }
+
+    console.log("🔍 [API] Filtros aplicados:", { usinaWhere })
 
     // Filtros para gerações
     const geracaoWhere: any = {}
@@ -68,7 +74,13 @@ export async function GET(request: Request) {
         _sum: { potencia: true },
       }),
       prisma.geracaoDiaria.findMany({
-        where: geracaoWhere,
+        where: {
+          ...geracaoWhere,
+          usina: {
+            // Aplicar filtros de usina também nas gerações para consistência
+            ...usinaWhere,
+          },
+        },
         select: {
           energiaKwh: true,
           data: true,
@@ -76,25 +88,45 @@ export async function GET(request: Request) {
       }),
     ])
 
-    
-    const energiaMensal = geracoes.reduce((acc, g) => acc + g.energiaKwh, 0)
-    const mediaGeracaoDiaria = geracoes.length > 0 ? energiaMensal / geracoes.length : 0
+    console.log("📈 [API] Dados brutos do banco:", {
+      totalUsinas,
+      potenciaTotal: potenciaAggregate._sum.potencia,
+      totalGeracoes: geracoes.length,
+    })
 
+    const energiaNoPeriodo = geracoes.reduce((acc, g) => acc + g.energiaKwh, 0) // Renomeado
+
+    // Calcular média diária com base nos dias com dados
+    const uniqueDates = new Set(geracoes.map((g) => g.data.toISOString().split("T")[0]))
+    const mediaGeracaoDiaria = uniqueDates.size > 0 ? energiaNoPeriodo / uniqueDates.size : 0
+
+    console.log("📊 [API] Cálculos intermediários:", {
+      energiaNoPeriodo: energiaNoPeriodo.toFixed(2),
+      mediaGeracaoDiaria: mediaGeracaoDiaria.toFixed(2),
+    })
 
     // Calcular crescimento comparando com período anterior
-    let crescimentoMensal = 0
+    let crescimentoNoPeriodo = 0 // Renomeado
     if (dataInicio && dataFim && geracoes.length > 0) {
-      const diasPeriodo = Math.ceil(
-        (new Date(dataFim).getTime() - new Date(dataInicio).getTime()) / (1000 * 60 * 60 * 24),
-      )
+      const inicioAtual = new Date(dataInicio)
+      const fimAtual = new Date(dataFim)
+      const diffTime = Math.abs(fimAtual.getTime() - inicioAtual.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-      const dataInicioAnterior = new Date(new Date(dataInicio).getTime() - diasPeriodo * 24 * 60 * 60 * 1000)
-      const dataFimAnterior = new Date(dataInicio)
+      const dataInicioAnterior = new Date(inicioAtual.getTime() - diffDays * 24 * 60 * 60 * 1000)
+      const dataFimAnterior = inicioAtual // O fim do período anterior é o início do período atual
 
+      console.log("📅 [API] Calculando crescimento:", {
+        periodoAtual: `${inicioAtual.toISOString().split("T")[0]} até ${fimAtual.toISOString().split("T")[0]}`,
+        periodoAnterior: `${dataInicioAnterior.toISOString().split("T")[0]} até ${dataFimAnterior.toISOString().split("T")[0]}`,
+      })
 
-      const geracoesMesAnterior = await prisma.geracaoDiaria.findMany({
+      const geracoesPeriodoAnterior = await prisma.geracaoDiaria.findMany({
         where: {
           ...geracaoWhere,
+          usina: {
+            ...usinaWhere,
+          },
           data: {
             gte: dataInicioAnterior,
             lt: dataFimAnterior,
@@ -105,33 +137,39 @@ export async function GET(request: Request) {
         },
       })
 
-      const energiaMesAnterior = geracoesMesAnterior.reduce((acc, g) => acc + g.energiaKwh, 0)
-      if (energiaMesAnterior > 0) {
-        crescimentoMensal = ((energiaMensal - energiaMesAnterior) / energiaMesAnterior) * 100
+      const energiaPeriodoAnterior = geracoesPeriodoAnterior.reduce((acc, g) => acc + g.energiaKwh, 0)
+      if (energiaPeriodoAnterior > 0) {
+        crescimentoNoPeriodo = ((energiaNoPeriodo - energiaPeriodoAnterior) / energiaPeriodoAnterior) * 100
       }
+
+      console.log("📊 [API] Crescimento calculado:", {
+        energiaNoPeriodo: energiaNoPeriodo.toFixed(2),
+        energiaPeriodoAnterior: energiaPeriodoAnterior.toFixed(2),
+        crescimentoNoPeriodo: crescimentoNoPeriodo.toFixed(2),
+      })
     }
 
     // Calculate totalConsorcios
     const usinasFiltradasParaConsorcios = await prisma.usina.findMany({
       where: usinaWhere,
       select: { nome: true },
-    });
+    })
 
     const uniqueConsorcios = new Set(
-      usinasFiltradasParaConsorcios.map(usina => usinaConsorcioMap[usina.nome] || 'Outros')
-    );
-    const totalConsorcios = uniqueConsorcios.size;
+      usinasFiltradasParaConsorcios.map((usina) => usinaConsorcioMap[usina.nome] || "Outros"),
+    )
+    const totalConsorcios = uniqueConsorcios.size
 
     const metricas = {
       totalUsinas,
       potenciaTotal: potenciaAggregate._sum.potencia || 0,
-      energiaMensal,
-      energiaAnual: energiaMensal * 12, // Estimativa baseada no período
+      energiaNoPeriodo, // Renomeado
       mediaGeracaoDiaria,
-      crescimentoMensal: Number.parseFloat(crescimentoMensal.toFixed(2)),
+      crescimentoNoPeriodo: Number.parseFloat(crescimentoNoPeriodo.toFixed(2)), // Renomeado
       totalConsorcios,
     }
 
+    console.log("✅ [API] Métricas finais calculadas:", metricas)
     return NextResponse.json(metricas)
   } catch (error) {
     console.error("❌ [API] Erro ao calcular métricas:", error)

@@ -19,17 +19,17 @@ export interface GeracaoDiaria {
 export interface MetricasUsina {
   totalUsinas: number
   potenciaTotal: number
-  energiaMensal: number
-  energiaAnual: number
+  energiaNoPeriodo: number // Renomeado de energiaMensal
   mediaGeracaoDiaria: number
-  crescimentoMensal: number
-  totalConsorcios?: number // Novo campo
+  crescimentoNoPeriodo: number // Renomeado de crescimentoMensal
+  totalConsorcios?: number
 }
 
 export interface FiltrosPeriodo {
-  periodo: "diario" | "mensal" | "anual"
+  periodo: "diario" | "mensal" | "anual" | "custom" // Adicionado "custom" para período de datas
   dataInicio: Date
   dataFim: Date
   usinaId?: number
-  consorcio?: string // Novo filtro
+  consorcio?: string
+  potenciaSelecionada?: number // Alterado: agora é uma potência específica
 }

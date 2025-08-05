@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { MetricasCards } from "@/components/metricas-cards"
 import { FiltrosDashboard } from "@/components/filtros-dashboard"
 import { GraficoGeracao } from "@/components/grafico-geracao"
 import { TabelaUsinas } from "@/components/tabela-usinas"
 import { FormAdicionarGeracao } from "@/components/form-adicionar-geracao"
+import { FormAdicionarUsina } from "@/components/form-adicionar-usina"
 import { DebugPanel } from "@/components/debug-panel"
 import { exportarPDF } from "@/lib/export-pdf"
 import { useUsinas } from "@/hooks/use-usinas"
@@ -16,18 +17,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { FiltrosPeriodo, GeracaoDiaria } from "@/types/usina"
+import { startOfMonth, endOfMonth } from "date-fns"
 
 export default function DashboardUsinas() {
-  
-  const initialDataInicio = new Date(2025, 0, 1) // 1º de Janeiro de 2024
-  const initialDataFim = new Date(2025, 0, 31) // 31 de Janeiro de 2024
+  const today = new Date()
+  const firstDayOfCurrentMonth = startOfMonth(today)
+  const lastDayOfCurrentMonth = endOfMonth(today)
 
   const [filtros, setFiltros] = useState<FiltrosPeriodo>({
     periodo: "mensal",
-    dataInicio: initialDataInicio,
-    dataFim: initialDataFim,
+    dataInicio: firstDayOfCurrentMonth,
+    dataFim: lastDayOfCurrentMonth,
     usinaId: undefined,
     consorcio: undefined,
+    potenciaSelecionada: undefined,
   })
 
   const [consorcioComparativoData, setConsorcioComparativoData] = useState<any[]>([])
@@ -38,16 +41,34 @@ export default function DashboardUsinas() {
 
   const [error, setError] = useState<string | null>(null)
 
+  // Extrair potências únicas das usinas para o filtro dropdown
+  const uniquePotencias = useMemo(() => {
+    console.log("💡 [Dashboard] Calculando potências únicas. Usinas recebidas:", usinas.length)
+    const potencias = usinas
+      .map((u) => u.potencia)
+      .filter((p): p is number => p !== null && p !== undefined)
+      .map((p) => Number.parseFloat(p.toFixed(1)))
+    const sortedPotencias = Array.from(new Set(potencias)).sort((a, b) => a - b)
+    console.log("💡 [Dashboard] Potências únicas calculadas:", sortedPotencias)
+    return sortedPotencias
+  }, [usinas])
+
   // Obter dados para o gráfico
   const obterDadosGrafico = (): GeracaoDiaria[] => {
-  
+    console.log("📊 [Dashboard] Preparando dados para o gráfico de geração...")
+    console.log("📊 [Dashboard] Filtros atuais para gráfico:", filtros)
+    console.log("📊 [Dashboard] Usinas recebidas para gráfico:", usinas.length)
 
     const usinasFiltradas = filtros.usinaId ? usinas.filter((u) => u.id === filtros.usinaId) : usinas
 
     const dadosGeracao = usinasFiltradas
       .flatMap((usina) => usina.geracoes || [])
       .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+
+    console.log("📊 [Dashboard] Total de registros de geração para o gráfico:", dadosGeracao.length)
     if (dadosGeracao.length > 0) {
+      console.log("📊 [Dashboard] Primeiro registro:", dadosGeracao[0])
+      console.log("📊 [Dashboard] Último registro:", dadosGeracao[dadosGeracao.length - 1])
       // Log de alguns exemplos de dados para o gráfico
       dadosGeracao
         .slice(0, 5)
@@ -80,6 +101,11 @@ export default function DashboardUsinas() {
     refetchMetricas()
   }
 
+  const handleAdicionarUsina = () => {
+    refetchUsinas()
+    refetchMetricas()
+  }
+
   const handleRetry = () => {
     refetchUsinas()
     refetchMetricas()
@@ -95,6 +121,9 @@ export default function DashboardUsinas() {
       if (filtros.dataInicio && filtros.dataFim) {
         params.append("dataInicio", filtros.dataInicio.toISOString())
         params.append("dataFim", filtros.dataFim.toISOString())
+      }
+      if (filtros.potenciaSelecionada !== undefined && filtros.potenciaSelecionada !== null) {
+        params.append("potenciaSelecionada", filtros.potenciaSelecionada.toString())
       }
 
       const url = `/api/consorcio-comparativo?${params}`
@@ -132,7 +161,13 @@ export default function DashboardUsinas() {
     }
 
     loadData()
-  }, [filtros.dataInicio?.toISOString(), filtros.dataFim?.toISOString(), filtros.usinaId, filtros.consorcio])
+  }, [
+    filtros.dataInicio?.toISOString(),
+    filtros.dataFim?.toISOString(),
+    filtros.usinaId,
+    filtros.consorcio,
+    filtros.potenciaSelecionada,
+  ])
 
   const dadosGrafico = obterDadosGrafico()
   const hasError = errorUsinas || errorMetricas || error
@@ -143,6 +178,7 @@ export default function DashboardUsinas() {
         <h2 className="text-3xl font-bold tracking-tight">Dashboard de Usinas Solares</h2>
         <div className="flex items-center gap-2">
           {!loadingUsinas && <FormAdicionarGeracao usinas={usinas} onSuccess={handleAdicionarGeracao} />}
+          <FormAdicionarUsina onSuccess={handleAdicionarUsina} />
         </div>
       </div>
 
@@ -169,6 +205,7 @@ export default function DashboardUsinas() {
         filtros={filtros}
         onFiltrosChange={setFiltros}
         onExportarPDF={handleExportarPDF}
+        uniquePotencias={uniquePotencias}
       />
 
       {/* Métricas */}

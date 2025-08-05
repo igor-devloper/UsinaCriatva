@@ -20,9 +20,15 @@ export function useMetricas(filtros: FiltrosPeriodo) {
       if (filtros.usinaId) {
         params.append("usinaId", filtros.usinaId.toString())
       }
+      if (filtros.consorcio) {
+        params.append("consorcio", filtros.consorcio)
+      }
       if (filtros.dataInicio && filtros.dataFim) {
         params.append("dataInicio", filtros.dataInicio.toISOString())
         params.append("dataFim", filtros.dataFim.toISOString())
+      }
+      if (filtros.potenciaSelecionada !== undefined && filtros.potenciaSelecionada !== null) {
+        params.append("potenciaSelecionada", filtros.potenciaSelecionada.toString()) // Alterado
       }
 
       const url = `/api/metricas?${params}`
@@ -50,7 +56,13 @@ export function useMetricas(filtros: FiltrosPeriodo) {
 
   useEffect(() => {
     fetchMetricas()
-  }, [filtros.usinaId, filtros.dataInicio?.toISOString(), filtros.dataFim?.toISOString()])
+  }, [
+    filtros.usinaId,
+    filtros.dataInicio?.toISOString(),
+    filtros.dataFim?.toISOString(),
+    filtros.consorcio,
+    filtros.potenciaSelecionada, // Alterado
+  ])
 
   return { metricas, loading, error, refetch: fetchMetricas }
 }

@@ -9,11 +9,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const dataInicio = searchParams.get("dataInicio")
     const dataFim = searchParams.get("dataFim")
+    const potenciaSelecionada = searchParams.get("potenciaSelecionada") // Alterado
 
-    console.log("📋 [API] Parâmetros:", { dataInicio, dataFim })
+    console.log("📋 [API] Parâmetros:", { dataInicio, dataFim, potenciaSelecionada }) // Alterado
 
     await prisma.$connect()
     console.log("✅ [API] Conectado ao banco de dados")
+
+    const usinaWhere: any = {}
+    if (potenciaSelecionada !== null && !isNaN(Number(potenciaSelecionada))) {
+      usinaWhere.potencia = Number(potenciaSelecionada) // Alterado para filtro exato
+    }
 
     const geracaoWhere: any = {}
     if (dataInicio && dataFim) {
@@ -24,6 +30,7 @@ export async function GET(request: Request) {
     }
 
     const usinas = await prisma.usina.findMany({
+      where: usinaWhere, // Aplicar filtro de potência aqui
       include: {
         geracoes: {
           where: geracaoWhere,

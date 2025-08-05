@@ -4,7 +4,7 @@ import { dark } from "@clerk/themes";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
-import { Toast, ToastProvider } from "@/components/ui/toast";
+
 
 
 const inter = Inter({
@@ -34,7 +34,7 @@ export default function RootLayout({
         >
 
           {children}
-          <ToastProvider />
+          <Toaster/>
 
         </ClerkProvider>
       </body>

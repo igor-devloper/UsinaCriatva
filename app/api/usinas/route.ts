@@ -11,8 +11,9 @@ export async function GET(request: Request) {
     const dataInicio = searchParams.get("dataInicio")
     const dataFim = searchParams.get("dataFim")
     const consorcio = searchParams.get("consorcio")
+    const potenciaSelecionada = searchParams.get("potenciaSelecionada") // Alterado
 
-    console.log("📋 [API] Parâmetros:", { includeGeracoes, dataInicio, dataFim, consorcio })
+    console.log("📋 [API] Parâmetros:", { includeGeracoes, dataInicio, dataFim, consorcio, potenciaSelecionada }) // Alterado
 
     // Conectar ao banco
     await prisma.$connect()
@@ -23,12 +24,12 @@ export async function GET(request: Request) {
     if (consorcio && consorcio !== "todos") {
       const usinasDoConsorcio = Object.entries(usinaConsorcioMap)
         .filter(([, mappedConsorcio]) => mappedConsorcio === consorcio)
-        .map(([usinaNome]) => usinaNome);
+        .map(([usinaNome]) => usinaNome)
 
       if (usinasDoConsorcio.length > 0) {
         usinaWhere.nome = {
           in: usinasDoConsorcio,
-        };
+        }
       } else {
         // If no usinas match the consorcio, return an empty array
         return NextResponse.json([], {
@@ -37,8 +38,12 @@ export async function GET(request: Request) {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
           },
-        });
+        })
       }
+    }
+
+    if (potenciaSelecionada !== null && !isNaN(Number(potenciaSelecionada))) {
+      usinaWhere.potencia = Number(potenciaSelecionada) // Alterado para filtro exato
     }
 
     // Filtros para gerações
@@ -149,7 +154,7 @@ export async function POST(request: Request) {
     console.log("➕ [API] POST /api/usinas")
 
     const body = await request.json()
-    const { nome, distribuidora, potencia } = body
+    const { nome, distribuidora, potencia, consorcio, latitude, longitude } = body // Adicionado consorcio, latitude, longitude
 
     if (!nome) {
       return NextResponse.json(
@@ -165,6 +170,9 @@ export async function POST(request: Request) {
       data: {
         nome,
         distribuidora: distribuidora || null,
+        consorcio: consorcio || null, // Adicionado
+        latitude: latitude !== null ? Number.parseFloat(latitude) : null, // Adicionado
+        longitude: longitude !== null ? Number.parseFloat(longitude) : null, // Adicionado
         potencia: potencia ? Number.parseFloat(potencia) : null,
       },
     })
