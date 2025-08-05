@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { usinaConsorcioMap } from "@/lib/consorcio-map"
 
 export async function GET(request: Request) {
   try {
@@ -9,16 +8,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const dataInicio = searchParams.get("dataInicio")
     const dataFim = searchParams.get("dataFim")
-    const potenciaSelecionada = searchParams.get("potenciaSelecionada") // Alterado
+    const potenciaSelecionada = searchParams.get("potenciaSelecionada")
+    const distribuidora = searchParams.get("distribuidora")
+    const consorcioFilter = searchParams.get("consorcio")
 
-    console.log("📋 [API] Parâmetros:", { dataInicio, dataFim, potenciaSelecionada }) // Alterado
+    console.log("📋 [API] Parâmetros:", { dataInicio, dataFim, potenciaSelecionada, distribuidora, consorcioFilter })
 
     await prisma.$connect()
     console.log("✅ [API] Conectado ao banco de dados")
 
     const usinaWhere: any = {}
     if (potenciaSelecionada !== null && !isNaN(Number(potenciaSelecionada))) {
-      usinaWhere.potencia = Number(potenciaSelecionada) // Alterado para filtro exato
+      usinaWhere.potencia = Number(potenciaSelecionada)
+    }
+    if (distribuidora && distribuidora !== "todas") {
+      usinaWhere.distribuidora = distribuidora
+    }
+    if (consorcioFilter && consorcioFilter !== "todas") {
+      usinaWhere.consorcio = consorcioFilter
     }
 
     const geracaoWhere: any = {}
@@ -30,7 +37,7 @@ export async function GET(request: Request) {
     }
 
     const usinas = await prisma.usina.findMany({
-      where: usinaWhere, // Aplicar filtro de potência aqui
+      where: usinaWhere,
       include: {
         geracoes: {
           where: geracaoWhere,
@@ -49,7 +56,7 @@ export async function GET(request: Request) {
     } = {}
 
     usinas.forEach((usina) => {
-      const consorcio = usinaConsorcioMap[usina.nome] || usina.distribuidora || "Outros"
+      const consorcio = usina.consorcio || "Outros"
       if (!consorcioData[consorcio]) {
         consorcioData[consorcio] = {
           potenciaTotal: 0,

@@ -3,7 +3,7 @@ export interface Usina {
   nome: string
   distribuidora: string | null
   potencia: number | null
-  consorcio?: string | null // Novo campo
+  consorcio?: string | null
   geracoes: GeracaoDiaria[]
 }
 
@@ -14,22 +14,25 @@ export interface GeracaoDiaria {
   data: Date
   energiaKwh: number
   origem: string
+  ocorrencia?: string | null // Opcional
+  clima?: string | null // Opcional
 }
 
 export interface MetricasUsina {
   totalUsinas: number
   potenciaTotal: number
-  energiaNoPeriodo: number // Renomeado de energiaMensal
+  energiaNoPeriodo: number
   mediaGeracaoDiaria: number
-  crescimentoNoPeriodo: number // Renomeado de crescimentoMensal
+  crescimentoNoPeriodo: number
   totalConsorcios?: number
 }
 
 export interface FiltrosPeriodo {
-  periodo: "diario" | "mensal" | "anual" | "custom" // Adicionado "custom" para período de datas
+  periodo: "diario" | "mensal" | "anual" | "custom"
   dataInicio: Date
   dataFim: Date
   usinaId?: number
-  consorcio?: string
-  potenciaSelecionada?: number // Alterado: agora é uma potência específica
+  distribuidora?: string // Novo filtro
+  consorcio?: string // Agora é um filtro direto
+  potenciaSelecionada?: number
 }

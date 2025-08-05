@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { usinaConsorcioMap } from "@/lib/consorcio-map"
 
 export async function GET(request: Request) {
   try {
@@ -10,10 +9,18 @@ export async function GET(request: Request) {
     const includeGeracoes = searchParams.get("includeGeracoes") === "true"
     const dataInicio = searchParams.get("dataInicio")
     const dataFim = searchParams.get("dataFim")
-    const consorcio = searchParams.get("consorcio")
-    const potenciaSelecionada = searchParams.get("potenciaSelecionada") // Alterado
+    const consorcioFilter = searchParams.get("consorcio") // Renomeado para evitar conflito
+    const distribuidora = searchParams.get("distribuidora") // Novo filtro
+    const potenciaSelecionada = searchParams.get("potenciaSelecionada")
 
-    console.log("📋 [API] Parâmetros:", { includeGeracoes, dataInicio, dataFim, consorcio, potenciaSelecionada }) // Alterado
+    console.log("📋 [API] Parâmetros:", {
+      includeGeracoes,
+      dataInicio,
+      dataFim,
+      consorcioFilter,
+      distribuidora,
+      potenciaSelecionada,
+    })
 
     // Conectar ao banco
     await prisma.$connect()
@@ -21,29 +28,14 @@ export async function GET(request: Request) {
 
     // Filtros para usinas
     const usinaWhere: any = {}
-    if (consorcio && consorcio !== "todos") {
-      const usinasDoConsorcio = Object.entries(usinaConsorcioMap)
-        .filter(([, mappedConsorcio]) => mappedConsorcio === consorcio)
-        .map(([usinaNome]) => usinaNome)
-
-      if (usinasDoConsorcio.length > 0) {
-        usinaWhere.nome = {
-          in: usinasDoConsorcio,
-        }
-      } else {
-        // If no usinas match the consorcio, return an empty array
-        return NextResponse.json([], {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-        })
-      }
+    if (consorcioFilter && consorcioFilter !== "todas") {
+      usinaWhere.consorcio = consorcioFilter
     }
-
+    if (distribuidora && distribuidora !== "todas") {
+      usinaWhere.distribuidora = distribuidora
+    }
     if (potenciaSelecionada !== null && !isNaN(Number(potenciaSelecionada))) {
-      usinaWhere.potencia = Number(potenciaSelecionada) // Alterado para filtro exato
+      usinaWhere.potencia = Number(potenciaSelecionada)
     }
 
     // Filtros para gerações
@@ -116,10 +108,10 @@ export async function GET(request: Request) {
       })
     }
 
-    // Adicionar campo consorcio baseado na distribuidora para compatibilidade
+    // O campo consorcio já vem do banco, não precisa de mapeamento externo
     const usinasComConsorcio = usinas.map((usina) => ({
       ...usina,
-      consorcio: usinaConsorcioMap[usina.nome] || usina.distribuidora || "Outros",
+      consorcio: usina.consorcio || usina.distribuidora || "Outros", // Usar o campo consorcio do banco
     }))
 
     console.log("✅ [API] Resposta preparada com sucesso")
@@ -154,7 +146,7 @@ export async function POST(request: Request) {
     console.log("➕ [API] POST /api/usinas")
 
     const body = await request.json()
-    const { nome, distribuidora, potencia, consorcio, latitude, longitude } = body // Adicionado consorcio, latitude, longitude
+    const { nome, distribuidora, potencia, consorcio, latitude, longitude } = body
 
     if (!nome) {
       return NextResponse.json(
@@ -170,9 +162,9 @@ export async function POST(request: Request) {
       data: {
         nome,
         distribuidora: distribuidora || null,
-        consorcio: consorcio || null, // Adicionado
-        latitude: latitude !== null ? Number.parseFloat(latitude) : null, // Adicionado
-        longitude: longitude !== null ? Number.parseFloat(longitude) : null, // Adicionado
+        consorcio: consorcio || null,
+        latitude: latitude !== null ? Number.parseFloat(latitude) : null,
+        longitude: longitude !== null ? Number.parseFloat(longitude) : null,
         potencia: potencia ? Number.parseFloat(potencia) : null,
       },
     })

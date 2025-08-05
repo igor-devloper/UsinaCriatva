@@ -17,7 +17,9 @@ interface FiltrosDashboardProps {
   filtros: FiltrosPeriodo
   onFiltrosChange: (filtros: FiltrosPeriodo) => void
   onExportarPDF: () => void
-  uniquePotencias: number[] // Nova prop para as potências únicas
+  uniquePotencias: number[]
+  allDistribuidoras: string[] // Nova prop
+  allConsorcios: string[] // Nova prop
 }
 
 export function FiltrosDashboard({
@@ -26,22 +28,27 @@ export function FiltrosDashboard({
   onFiltrosChange,
   onExportarPDF,
   uniquePotencias,
+  allDistribuidoras, // Usar esta prop
+  allConsorcios, // Usar esta prop
 }: FiltrosDashboardProps) {
   const [dataInicioLocal, setDataInicioLocal] = useState<Date>(filtros.dataInicio)
   const [dataFimLocal, setDataFimLocal] = useState<Date>(filtros.dataFim)
   const [potenciaSelecionadaLocal, setPotenciaSelecionadaLocal] = useState<string>(
     filtros.potenciaSelecionada?.toString() || "todas",
   )
+  const [distribuidoraSelecionadaLocal, setDistribuidoraSelecionadaLocal] = useState<string>(
+    filtros.distribuidora || "todas",
+  ) // Novo estado local
+  const [consorcioSelecionadoLocal, setConsorcioSelecionadoLocal] = useState<string>(filtros.consorcio || "todas") // Novo estado local
 
   // Sincroniza estados locais com props quando filtros mudam externamente
   useEffect(() => {
     setDataInicioLocal(filtros.dataInicio)
     setDataFimLocal(filtros.dataFim)
     setPotenciaSelecionadaLocal(filtros.potenciaSelecionada?.toString() || "todas")
+    setDistribuidoraSelecionadaLocal(filtros.distribuidora || "todas") // Sincronizar
+    setConsorcioSelecionadoLocal(filtros.consorcio || "todas") // Sincronizar
   }, [filtros])
-
-  // Extrair consórcios únicos das usinas, garantindo que 'consorcio' seja o campo principal
-  const consorcios = Array.from(new Set(usinas.map((u) => u.consorcio).filter(Boolean) as string[])).sort()
 
   const handlePeriodoChange = (periodo: "diario" | "mensal" | "anual" | "custom") => {
     const hoje = new Date()
@@ -50,19 +57,18 @@ export function FiltrosDashboard({
 
     switch (periodo) {
       case "diario":
-        novaDataInicio = subDays(hoje, 1) // Últimas 24 horas
+        novaDataInicio = subDays(hoje, 1)
         break
       case "mensal":
-        novaDataInicio = startOfMonth(hoje) // Início do mês atual
-        novaDataFim = endOfMonth(hoje) // Fim do mês atual
+        novaDataInicio = startOfMonth(hoje)
+        novaDataFim = endOfMonth(hoje)
         break
       case "anual":
-        novaDataInicio = startOfYear(hoje) // Início do ano atual
-        novaDataFim = endOfYear(hoje) // Fim do ano atual
+        novaDataInicio = startOfYear(hoje)
+        novaDataFim = endOfYear(hoje)
         break
       case "custom":
       default:
-        // Mantém as datas atuais ou usa um padrão se não houver
         novaDataInicio = dataInicioLocal || subMonths(hoje, 1)
         novaDataFim = dataFimLocal || hoje
         break
@@ -86,10 +92,21 @@ export function FiltrosDashboard({
     })
   }
 
-  const handleConsorcioChange = (consorcio: string) => {
+  const handleDistribuidoraChange = (distribuidora: string) => {
+    // Novo handler
+    setDistribuidoraSelecionadaLocal(distribuidora)
     onFiltrosChange({
       ...filtros,
-      consorcio: consorcio === "todos" ? undefined : consorcio,
+      distribuidora: distribuidora === "todas" ? undefined : distribuidora,
+    })
+  }
+
+  const handleConsorcioChange = (consorcio: string) => {
+    // Alterado para usar a nova prop
+    setConsorcioSelecionadoLocal(consorcio)
+    onFiltrosChange({
+      ...filtros,
+      consorcio: consorcio === "todas" ? undefined : consorcio,
     })
   }
 
@@ -101,8 +118,9 @@ export function FiltrosDashboard({
     })
   }
 
-  // Adicione este console.log para ver as potências disponíveis
   console.log("💡 [FiltrosDashboard] Potências únicas disponíveis no dropdown:", uniquePotencias)
+  console.log("💡 [FiltrosDashboard] Distribuidoras disponíveis no dropdown:", allDistribuidoras) // Log
+  console.log("💡 [FiltrosDashboard] Consórcios disponíveis no dropdown:", allConsorcios) // Log
 
   return (
     <Card>
@@ -130,17 +148,35 @@ export function FiltrosDashboard({
             </Select>
           </div>
 
+          {/* Distribuidora */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Distribuidora</label>
+            <Select value={distribuidoraSelecionadaLocal} onValueChange={handleDistribuidoraChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todas as Distribuidoras" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as Distribuidoras</SelectItem>
+                {allDistribuidoras.map((distribuidora) => (
+                  <SelectItem key={distribuidora} value={distribuidora}>
+                    {distribuidora}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Consórcio */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Consórcio</label>
-            <Select value={filtros.consorcio || "todos"} onValueChange={handleConsorcioChange}>
+            <Select value={consorcioSelecionadoLocal} onValueChange={handleConsorcioChange}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Todos os Consórcios" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos os Consórcios</SelectItem>
-                {consorcios.map((consorcio) => (
-                  <SelectItem key={consorcio} value={consorcio || ""}>
+                <SelectItem value="todas">Todos os Consórcios</SelectItem>
+                {allConsorcios.map((consorcio) => (
+                  <SelectItem key={consorcio} value={consorcio}>
                     {consorcio}
                   </SelectItem>
                 ))}

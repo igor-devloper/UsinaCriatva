@@ -11,6 +11,8 @@ import { DebugPanel } from "@/components/debug-panel"
 import { exportarPDF } from "@/lib/export-pdf"
 import { useUsinas } from "@/hooks/use-usinas"
 import { useMetricas } from "@/hooks/use-metricas"
+import { useDistribuidoras } from "@/hooks/use-distribuidoras" // Novo
+import { useConsorcios } from "@/hooks/use-consorcios" // Novo
 import { GraficoComparativoConsorcio } from "@/components/grafico-consorcio-comparativo"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -29,7 +31,8 @@ export default function DashboardUsinas() {
     dataInicio: firstDayOfCurrentMonth,
     dataFim: lastDayOfCurrentMonth,
     usinaId: undefined,
-    consorcio: undefined,
+    distribuidora: undefined, // Alterado de consorcio para distribuidora
+    consorcio: undefined, // Novo filtro de consorcio
     potenciaSelecionada: undefined,
   })
 
@@ -38,10 +41,11 @@ export default function DashboardUsinas() {
 
   const { usinas, loading: loadingUsinas, error: errorUsinas, refetch: refetchUsinas } = useUsinas(filtros)
   const { metricas, loading: loadingMetricas, error: errorMetricas, refetch: refetchMetricas } = useMetricas(filtros)
+  const { distribuidoras, loading: loadingDistribuidoras, error: errorDistribuidoras } = useDistribuidoras() // Novo
+  const { consorcios, loading: loadingConsorcios, error: errorConsorcios } = useConsorcios() // Novo
 
   const [error, setError] = useState<string | null>(null)
 
-  // Extrair potências únicas das usinas para o filtro dropdown
   const uniquePotencias = useMemo(() => {
     console.log("💡 [Dashboard] Calculando potências únicas. Usinas recebidas:", usinas.length)
     const potencias = usinas
@@ -53,7 +57,6 @@ export default function DashboardUsinas() {
     return sortedPotencias
   }, [usinas])
 
-  // Obter dados para o gráfico
   const obterDadosGrafico = (): GeracaoDiaria[] => {
     console.log("📊 [Dashboard] Preparando dados para o gráfico de geração...")
     console.log("📊 [Dashboard] Filtros atuais para gráfico:", filtros)
@@ -69,7 +72,6 @@ export default function DashboardUsinas() {
     if (dadosGeracao.length > 0) {
       console.log("📊 [Dashboard] Primeiro registro:", dadosGeracao[0])
       console.log("📊 [Dashboard] Último registro:", dadosGeracao[dadosGeracao.length - 1])
-      // Log de alguns exemplos de dados para o gráfico
       dadosGeracao
         .slice(0, 5)
         .forEach((d, i) => console.log(`📊 [Dashboard] Exemplo ${i}: Data=${d.data}, Energia=${d.energiaKwh}`))
@@ -125,6 +127,14 @@ export default function DashboardUsinas() {
       if (filtros.potenciaSelecionada !== undefined && filtros.potenciaSelecionada !== null) {
         params.append("potenciaSelecionada", filtros.potenciaSelecionada.toString())
       }
+      if (filtros.distribuidora) {
+        // Novo
+        params.append("distribuidora", filtros.distribuidora)
+      }
+      if (filtros.consorcio) {
+        // Novo
+        params.append("consorcio", filtros.consorcio)
+      }
 
       const url = `/api/consorcio-comparativo?${params}`
       console.log("📡 Fazendo requisição para:", url)
@@ -165,12 +175,13 @@ export default function DashboardUsinas() {
     filtros.dataInicio?.toISOString(),
     filtros.dataFim?.toISOString(),
     filtros.usinaId,
-    filtros.consorcio,
+    filtros.distribuidora, // Novo
+    filtros.consorcio, // Novo
     filtros.potenciaSelecionada,
   ])
 
   const dadosGrafico = obterDadosGrafico()
-  const hasError = errorUsinas || errorMetricas || error
+  const hasError = errorUsinas || errorMetricas || errorDistribuidoras || errorConsorcios || error // Incluir novos erros
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -190,7 +201,9 @@ export default function DashboardUsinas() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
-            <span>Erro ao carregar dados: {errorUsinas || errorMetricas || error}</span>
+            <span>
+              Erro ao carregar dados: {errorUsinas || errorMetricas || errorDistribuidoras || errorConsorcios || error}
+            </span>
             <Button variant="outline" size="sm" onClick={handleRetry} className="ml-4 bg-transparent">
               <RefreshCw className="h-4 w-4 mr-2" />
               Tentar Novamente
@@ -206,6 +219,8 @@ export default function DashboardUsinas() {
         onFiltrosChange={setFiltros}
         onExportarPDF={handleExportarPDF}
         uniquePotencias={uniquePotencias}
+        allDistribuidoras={distribuidoras} // Novo
+        allConsorcios={consorcios} // Novo
       />
 
       {/* Métricas */}
