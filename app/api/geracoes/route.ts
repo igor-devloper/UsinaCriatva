@@ -51,12 +51,12 @@ export async function POST(request: Request) {
     console.log("➕ Criando nova geração...")
 
     const body = await request.json()
-    const { usinaId, data, energiaKwh, origem } = body
+    const { usinaId, data, energiaKwh, ocorrencia } = body
 
-    console.log("Dados recebidos:", { usinaId, data, energiaKwh, origem })
+    console.log("Dados recebidos:", { usinaId, data, energiaKwh, ocorrencia })
 
     // Validações
-    if (!usinaId || !data || !energiaKwh || !origem) {
+    if (!usinaId || !data || !energiaKwh || !ocorrencia) {
       return NextResponse.json({ error: "Todos os campos são obrigatórios" }, { status: 400 })
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
         usinaId: Number.parseInt(usinaId),
         data: new Date(data),
         energiaKwh: Number.parseFloat(energiaKwh),
-        ocorrencia: "",
+        ocorrencia: ocorrencia,
         clima: ''
       },
     })
